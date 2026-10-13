@@ -249,7 +249,7 @@ tr.tot td{background:var(--ppt-red)!important;color:#fff}
     <input id="fileIn" type="file" accept=".xlsx,.xls,.xlsm" multiple hidden>
     <button class="btn" id="btnPresent" type="button" title="Presentar a pantalla completa (Esc para salir)">Presentar</button>
     <button class="btn" id="btnPpt" type="button" title="Genera 14 láminas + Gracias con todas las campañas del mes seleccionado">Descargar PPT</button>
-    <button class="btn ghost" id="btnReset" type="button">Base de ejemplo</button>
+    <button class="btn ghost" id="btnReset" type="button" title="Volver a la base que publica la descarga automática del Outbound">Base publicada</button>
     <a class="btn ghost" href="NPS%20CLARO%20ECUADOR.html" style="text-decoration:none" title="Volver al dashboard de encuestas post-llamada (debe estar en la misma carpeta)">◂ Encuestas NPS</a>
     <details class="cfg"><summary class="btn ghost">Ajustes</summary>
       <div class="cfgp">
@@ -498,7 +498,7 @@ function renderControls(){
   $('#selMes').innerHTML=monthsAvail().map(m=>`<option value="${m}" ${m===S.mes?'selected':''}>${ymLabel(m)}</option>`).join('');
   $('#selFecha').value=S.fecha;
   const f=filt(), cur=f.filter(r=>r.ym===S.mes);
-  $('#srcInfo').textContent=`Base: ${S.src} · ${S.all.length} monitoreos · filtro actual: ${cur.length} en ${ymLabel(S.mes)}`;
+  $('#srcInfo').textContent=`Base: ${S.src} · ${S.all.length} monitoreos · filtro actual: ${cur.length} en ${ymLabel(S.mes)}`+(S.src!==BASE_EJEMPLO_NOMBRE?` · Base publicada: ${BASE_EJEMPLO_NOMBRE}`:'');
   for(const [k,id] of [['umbral','cfgUmbral'],['exc','cfgExc'],['bue','cfgBue'],['reg','cfgReg'],['antig','cfgAntig'],['plazo','cfgPlazo']]) $('#'+id).value=S.cfg[k];
 }
 $('#campChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;const c=b.dataset.c;
@@ -527,7 +527,7 @@ $('#fileIn').addEventListener('change',async e=>{
   }catch(err){toast(err.message||'No se pudo leer el archivo.');console.error(err)}
   e.target.value='';
 });
-$('#btnReset').addEventListener('click',()=>{try{localStorage.removeItem('cv:base')}catch(e){};loadAoa(BASE_EJEMPLO,BASE_EJEMPLO_NOMBRE);render();toast('Se volvió a la base de ejemplo')});
+$('#btnReset').addEventListener('click',()=>{try{localStorage.removeItem('cv:base')}catch(e){};loadAoa(BASE_EJEMPLO,BASE_EJEMPLO_NOMBRE);render();toast('Base publicada: '+BASE_EJEMPLO_NOMBRE)});
 
 /* ================= gráficos ================= */
 function chartBase(){
