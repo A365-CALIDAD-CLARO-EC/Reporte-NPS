@@ -368,7 +368,7 @@ function buildRecords(aoa){
   const C={
     rec:col('RecordedDate'), id:col('ResponseId'), fm:col('Fecha de Monitoreo'), fi:col('Fecha de interacción'),
     ase:col('Nombre de Asesor'), usu:col('Usuario de Asesor'), camp:col(['CAMPAÑA']), campOut:col('CAMPAÑAS OUTBOUND'), campIn:col('CAMPAÑAS'),
-    ing:col(['FECHA DE INGRESO','FECHA INGRESO','FN']),   // en la base EVALUACIONES la fecha de ingreso viene como "FN" gest:col('Gestión Cola'), tipo:col('TIPO DE MONITOREO'), prod:col('PRODUCTO OFERTADO'),
+    ing:col(['FECHA DE INGRESO','FECHA INGRESO','FN']), gest:col('Gestión Cola'), tipo:col('TIPO DE MONITOREO'), prod:col('PRODUCTO OFERTADO'),
     efe:col(['Efectivización','Concretó la venta en la llamada']), causa:col('Causa Raiz',0), cProc:col('Causa Raiz',1), cAg:col('Causa Raiz',2), cCli:col('Causa Raiz',3),
     mot:col(['ENTREGA','Porque no se concreto la venta ?']), obs:col(['OBSERVACIÓN']), retro:col(['Q75','APLICA RETROALIMENTACION']), ec:col('EC'),
     ana:col('A365'), tip: tipCol?idx[tipCol][0]:-1,
