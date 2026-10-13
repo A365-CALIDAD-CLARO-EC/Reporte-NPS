@@ -395,7 +395,7 @@ function buildRecords(aoa){
     out.push({
       id:g(C.id)||('r'+r), ase, usu:nameClean(g(C.usu)), camp, fm, fi, rd, ing:parseDate(g(C.ing)),
       gest, sc, tipo:nameClean(g(C.tipo)), prod:String(g(C.prod)??'').trim(),
-      items, ec, efe: ef==='SI'?'SI':ef==='NO'?'NO':'NA',
+      items, ec, efe: ef==='SI'?'SI':'NO',          // "NO APLICA" o vacío cuentan como no venta (venta + no venta = monitoreos)
       causa: cz.startsWith('AGENTE')?'AGENTE':cz.startsWith('CLIENTE')?'CLIENTE':cz.startsWith('PROCESO')?'PROCESO':null,
       cAg:String(g(C.cAg)??'').trim(), cCli:String(g(C.cCli)??'').trim(), cProc:String(g(C.cProc)??'').trim(),
       mot:String(g(C.mot)??'').trim(), obs:String(g(C.obs)??'').trim(), retro:/^SI/i.test(String(g(C.retro)??'').trim()),
@@ -734,8 +734,8 @@ function render(){
   const nvA=[...groupBy(nv,r=>r.ase).entries()].sort((a,b)=>b[1].length-a[1].length);
   add(11,'Análisis de Tipificación',`
     <div class="g g3">
-      <div class="box"><h3>Efectivización ${ymLabel(mes)}</h3>${canvas(200,id=>bar(id,['Venta','No venta','No aplica'],[{data:[cur.filter(r=>r.efe==='SI').length,nv.length,cur.filter(r=>r.efe==='NA').length],backgroundColor:[css('--s1'),css('--s2'),css('--s3')]}],{count:true,thick:56}))}</div>
-      <div class="box"><h3>% venta semanal <small>sobre venta / no venta</small></h3>${canvas(200,id=>bar(id,ws.map(w=>w.label),[{data:ws.map(w=>vRate(bySem(w.n))),backgroundColor:css('--s1')}],{thick:56}))}</div>
+      <div class="box"><h3>Efectivización ${ymLabel(mes)}</h3>${canvas(200,id=>bar(id,['Venta','No venta'],[{data:[cur.filter(r=>r.efe==='SI').length,nv.length],backgroundColor:[css('--s1'),css('--s2')]}],{count:true,thick:56}))}</div>
+      <div class="box"><h3>% venta semanal <small>sobre el total de monitoreos</small></h3>${canvas(200,id=>bar(id,ws.map(w=>w.label),[{data:ws.map(w=>vRate(bySem(w.n))),backgroundColor:css('--s1')}],{thick:56}))}</div>
       <div class="box"><h3>% venta últimos ${meses.length} meses</h3>${canvas(200,id=>bar(id,meses.map(ymShort),[{data:meses.map(m=>vRate(F.filter(r=>r.ym===m))),backgroundColor:css('--s1')}],{thick:56}))}</div>
     </div>
     <div class="g g-1-2 gfill">
@@ -1064,7 +1064,7 @@ async function exportPptx(){
     const vRate=rs=>{const v=rs.filter(r=>r.efe!=='NA');return pct(v.filter(r=>r.efe==='SI').length,v.length)};
     const nv=cur.filter(r=>r.efe==='NO'), nvA=[...groupBy(nv,r=>r.ase).entries()].sort((a,b)=>b[1].length-a[1].length);
     s=newSlide('Análisis de Tipificación');
-    chartBar(s,['Venta','No venta','No aplica'],[{name:'Monitoreos',values:[cur.filter(r=>r.efe==='SI').length,nv.length,cur.filter(r=>r.efe==='NA').length]}],{pos:{x:X0,y:0.95,w:4.2,h:2.75},title:'Efectivización '+ymLabel(mes),count:true,gap:80});
+    chartBar(s,['Venta','No venta'],[{name:'Monitoreos',values:[cur.filter(r=>r.efe==='SI').length,nv.length]}],{pos:{x:X0,y:0.95,w:4.2,h:2.75},title:'Efectivización '+ymLabel(mes),count:true,gap:80});
     chartBar(s,ws.map(wl),[{name:'% venta',values:ws.map(w=>vRate(bySem(w.n)))}],{pos:{x:4.55,y:0.95,w:4.2,h:2.75},title:'% venta semanal',gap:90});
     chartBar(s,meses.map(ymShort),[{name:'% venta',values:meses.map(m=>vRate(F.filter(r=>r.ym===m)))}],{pos:{x:8.9,y:0.95,w:4.2,h:2.75},title:`% venta últimos ${meses.length} meses`,gap:90});
     if(nv.length) fitTable(s,['MOTIVO DE NO VENTA','CANT','%'],[...topList(countBy(nv,motivoCat),10).map(([k,v])=>[L_(k),cell(v),cell(fmt(v/nv.length))]),totRow([L_('Total general'),cell(nv.length),cell('100%')])],{x:X0,y:3.85,w:5.2,h:3.2},[3.6,0.8,0.8],{maxRowH:0.27});
