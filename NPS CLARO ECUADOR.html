@@ -478,8 +478,9 @@ const barLabels={id:'barLabels',afterDatasetsDraw(ch,_,o){
   meta.data.forEach((bar,i)=>{
     const v=ds.data[i];if(v==null)return;
     const up=v>=0,y=up?bar.y-6:bar.y+16;
-    ctx.font='600 12px Archivo, system-ui, sans-serif';ctx.fillText(o.fmt(v),bar.x,y);
-    if(o.ns&&ch.width/meta.data.length>34){ctx.font='11px Archivo, system-ui, sans-serif';ctx.fillStyle=o.muted;ctx.fillText('n '+o.ns[i],bar.x,up?y-14:y+13);ctx.fillStyle=o.color}
+    ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.lineJoin='round';
+    ctx.font='600 12px Arial, system-ui, sans-serif';ctx.strokeText(o.fmt(v),bar.x,y);ctx.fillText(o.fmt(v),bar.x,y);
+    if(o.ns&&ch.width/meta.data.length>34){ctx.font='11px Arial, system-ui, sans-serif';ctx.fillStyle=o.muted;ctx.strokeText('n '+o.ns[i],bar.x,up?y-14:y+13);ctx.fillText('n '+o.ns[i],bar.x,up?y-14:y+13);ctx.fillStyle=o.color}
   });ctx.restore();
 }};
 function axisFor(m,vals){
@@ -491,7 +492,7 @@ function baseOpts(m,vals,ns,onClick){
   const muted=css('--muted'),line=css('--line'),ink=css('--ink');
   const ax=axisFor(m,vals);
   return {responsive:true,maintainAspectRatio:false,animation:{duration:250},
-    layout:{padding:{top:4}},
+    layout:{padding:{top:4,right:SIDE_W}},
     onClick:(e,els)=>{if(els.length) onClick(els[0].index)},
     onHover:(e,els)=>{e.native.target.style.cursor=els.length?'pointer':'default'},
     plugins:{legend:{display:false},barLabels:{color:ink,muted,ns,fmt:v=>m.type==='bin'?nf0.format(v)+'%':nf1.format(v)},
@@ -499,12 +500,20 @@ function baseOpts(m,vals,ns,onClick){
     scales:{x:{ticks:{color:muted,maxRotation:0,autoSkip:true},grid:{display:false},border:{color:line}},
       y:{min:ax.min,max:ax.max,ticks:{color:muted,stepSize:25,callback:v=>v>100?'':(m.type==='bin'?v+'%':v)},grid:{color:c=>c.tick.value===0?css('--muted'):line},border:{display:false}}}};
 }
-// línea punteada gris con la meta de la métrica
-const metaLine=m=>({id:'meta',afterDatasetsDraw(ch){if(m.meta==null)return;
-  const y=ch.scales.y.getPixelForValue(m.meta),{left,right}=ch.chartArea,ctx=ch.ctx;
-  ctx.save();ctx.strokeStyle=css('--cx-meta');ctx.setLineDash([2,3]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
-  ctx.setLineDash([]);ctx.fillStyle=css('--cx-meta');ctx.font='600 11.5px Barlow, system-ui, sans-serif';ctx.textAlign='left';
-  ctx.fillText('Meta '+metaLbl(m),left+4,y-5);ctx.restore()}});
+// líneas de referencia (meta y promedio): se dibujan detrás de las barras y su etiqueta va
+// en el margen derecho del gráfico, sin tapar valores; si dos etiquetas chocan se separan
+const SIDE_W=84;
+const refLines=lines=>({id:'refLines',
+  beforeDatasetsDraw(ch){const {left,right}=ch.chartArea,ctx=ch.ctx;
+    lines().forEach(l=>{const y=ch.scales.y.getPixelForValue(l.v);ctx.save();ctx.strokeStyle=l.color;ctx.setLineDash(l.dash);ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right+6,y);ctx.stroke();ctx.restore()})},
+  afterDraw(ch){const {right}=ch.chartArea,ctx=ch.ctx;
+    const tags=lines().map(l=>({...l,y:ch.scales.y.getPixelForValue(l.v)})).sort((a,b)=>a.y-b.y);
+    for(let i=1;i<tags.length;i++) if(tags[i].y-tags[i-1].y<26) tags[i].y=tags[i-1].y+26;
+    tags.forEach(t=>{ctx.save();ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle=t.color;
+      ctx.font='600 10.5px Arial, system-ui, sans-serif';ctx.fillText(t.label,right+10,t.y-6);
+      ctx.font='700 12px Arial, system-ui, sans-serif';ctx.fillText(t.value,right+10,t.y+7);ctx.restore()})}});
+const metaRef=m=>m.meta==null?[]:[{v:m.meta,label:'Meta',value:metaLbl(m),color:css('--cx-meta'),dash:[2,3]}];
 function renderCharts(rowsAll){
   if(typeof Chart==='undefined') return;
   const m=M[curMetric];
@@ -519,7 +528,7 @@ function renderCharts(rowsAll){
   if(chartMes) chartMes.destroy();
   chartMes=new Chart($('chartMes'),{type:'bar',
     data:{labels:months.map(mesLabel),datasets:[{data:valsM,backgroundColor:months.map((k,i)=>!inRange(k)?neu:enMeta(m,valsM[i])===false?css('--det'):enMeta(m,valsM[i])?css('--pro'):brand),borderRadius:4,maxBarThickness:80}]},
-    options:baseOpts(m,valsM,nsM,i=>{setRange(...monthRange(months[i]));render()}),plugins:[barLabels,metaLine(m)]});
+    options:baseOpts(m,valsM,nsM,i=>{setRange(...monthRange(months[i]));render()}),plugins:[barLabels,refLines(()=>metaRef(m))]});
 
   // por día o semana (rango elegido)
   const ds=dates.filter(d=>d>=d1&&d<=d2);
@@ -540,11 +549,8 @@ function renderCharts(rowsAll){
     if(porSemana) setRange(k<d1?d1:k,weekEnd(k)>d2?d2:weekEnd(k)); else setRange(k,k);
     render();
   });
-  chartDia=new Chart($('chartDia'),{type:'bar',plugins:[barLabels,metaLine(m),{id:'avg',afterDatasetsDraw(ch){
-      if(tot.score==null||keys.length<2)return;const y=ch.scales.y.getPixelForValue(tot.score),{left,right}=ch.chartArea,ctx=ch.ctx;
-      ctx.save();ctx.strokeStyle=css('--det');ctx.setLineDash([5,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
-      ctx.setLineDash([]);ctx.fillStyle=css('--det');ctx.font='600 11.5px Arial, system-ui, sans-serif';ctx.textAlign='right';
-      ctx.fillText('Promedio '+fmtScore(m,tot.score),right,y-5);ctx.restore()}}],
+  const avgRef=tot.score==null||keys.length<2?[]:[{v:tot.score,label:'Promedio',value:fmtScore(m,tot.score),color:css('--det'),dash:[5,4]}];
+  chartDia=new Chart($('chartDia'),{type:'bar',plugins:[barLabels,refLines(()=>[...metaRef(m),...avgRef])],
     data:{labels,datasets:[{data:valsD,backgroundColor:valsD.map(v=>enMeta(m,v)===false?css('--det'):enMeta(m,v)?css('--pro'):brand),borderRadius:3,maxBarThickness:46}]},options:optsD});
 }
 
