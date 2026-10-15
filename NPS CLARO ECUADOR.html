@@ -332,7 +332,7 @@ thead th .thm{display:block;font-size:10.5px;font-weight:500;text-transform:none
   <div><b>CS (1 a 7)</b>1–4 detractor (−1), 5 neutro (0), 6–7 promotor (+1). Resultado = promedio × 100. <b class="mt">Meta ≥ 90.</b></div>
   <div><b>OC (1 / 2)</b>1 lo hizo bien (1), 2 lo hizo mal (0). Resultado = promedio en %. <b class="mt">Meta definida por campaña.</b></div>
 </div>
-<p class="note">Metas según la ficha «KPIs del Contact Center» de Claro Ecuador; se comparan con el resultado de cada métrica tal como se calcula arriba. En tarjetas, gráficos y tabla: verde = en meta, rojo = bajo meta. Solo cuentan las respuestas con calificación; las preguntas sin responder se excluyen de cada métrica. La etiqueta Comentarios no tiene escala y no se incluye.</p>
+<p class="note">Metas según la ficha «KPIs del Contact Center» de Claro Ecuador; se comparan con el resultado de cada métrica tal como se calcula arriba. En tarjetas y tabla: verde = en meta, rojo = bajo meta; en los gráficos: azul marino = en meta, rojo = bajo meta. Solo cuentan las respuestas con calificación; las preguntas sin responder se excluyen de cada métrica. La etiqueta Comentarios no tiene escala y no se incluye.</p>
 </div>
 
 <div class="cx-foot" role="contentinfo"><div class="cx-fin"><span class="cx-seg"><i></i><i></i><i></i></span><span><b>Claro</b> · Encuestas post-llamada (NPS) · Elaborado por <b>A365</b></span><span class="cx-r">Documento de uso interno · Confidencial</span></div></div>
@@ -518,7 +518,7 @@ function renderCharts(rowsAll){
   const valsM=agM.map(a=>a.score),nsM=agM.map(a=>a.n);
   if(chartMes) chartMes.destroy();
   chartMes=new Chart($('chartMes'),{type:'bar',
-    data:{labels:months.map(mesLabel),datasets:[{data:valsM,backgroundColor:months.map((k,i)=>!inRange(k)?neu:enMeta(m,valsM[i])===false?css('--det'):enMeta(m,valsM[i])?css('--ok'):brand),borderRadius:4,maxBarThickness:80}]},
+    data:{labels:months.map(mesLabel),datasets:[{data:valsM,backgroundColor:months.map((k,i)=>!inRange(k)?neu:enMeta(m,valsM[i])===false?css('--det'):enMeta(m,valsM[i])?css('--pro'):brand),borderRadius:4,maxBarThickness:80}]},
     options:baseOpts(m,valsM,nsM,i=>{setRange(...monthRange(months[i]));render()}),plugins:[barLabels,metaLine(m)]});
 
   // por día o semana (rango elegido)
@@ -545,7 +545,7 @@ function renderCharts(rowsAll){
       ctx.save();ctx.strokeStyle=css('--det');ctx.setLineDash([5,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
       ctx.setLineDash([]);ctx.fillStyle=css('--det');ctx.font='600 11.5px Arial, system-ui, sans-serif';ctx.textAlign='right';
       ctx.fillText('Promedio '+fmtScore(m,tot.score),right,y-5);ctx.restore()}}],
-    data:{labels,datasets:[{data:valsD,backgroundColor:valsD.map(v=>enMeta(m,v)===false?css('--det'):enMeta(m,v)?css('--ok'):brand),borderRadius:3,maxBarThickness:46}]},options:optsD});
+    data:{labels,datasets:[{data:valsD,backgroundColor:valsD.map(v=>enMeta(m,v)===false?css('--det'):enMeta(m,v)?css('--pro'):brand),borderRadius:3,maxBarThickness:46}]},options:optsD});
 }
 
 // ---------- tabla ----------
