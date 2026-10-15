@@ -235,7 +235,8 @@ header h1{font-family:Arial,"Segoe UI",sans-serif;font-stretch:normal;color:#000
 .mmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:-2px}
 .mmeta b{color:var(--ink)}
 .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11.5px;font-weight:600}
-.pill.ok{background:color-mix(in srgb,var(--pro) 12%,#fff);color:var(--pro)}.pill.bad{background:color-mix(in srgb,var(--det) 12%,#fff);color:var(--det)}
+:root{--ok:#1E9A4B;--ok-txt:#14743A}
+.pill.ok{background:color-mix(in srgb,var(--ok) 14%,#fff);color:var(--ok-txt)}.pill.bad{background:color-mix(in srgb,var(--det) 12%,#fff);color:var(--det)}
 thead th .thm{display:block;font-size:10.5px;font-weight:500;text-transform:none;letter-spacing:0;color:inherit;opacity:.85}
 .method b.mt{display:inline;color:var(--ink);margin:0}
 </style>
@@ -331,7 +332,7 @@ thead th .thm{display:block;font-size:10.5px;font-weight:500;text-transform:none
   <div><b>CS (1 a 7)</b>1–4 detractor (−1), 5 neutro (0), 6–7 promotor (+1). Resultado = promedio × 100. <b class="mt">Meta ≥ 90.</b></div>
   <div><b>OC (1 / 2)</b>1 lo hizo bien (1), 2 lo hizo mal (0). Resultado = promedio en %. <b class="mt">Meta definida por campaña.</b></div>
 </div>
-<p class="note">Metas según la ficha «KPIs del Contact Center» de Claro Ecuador; se comparan con el resultado de cada métrica tal como se calcula arriba. En tarjetas, gráficos y tabla: azul marino = en meta, rojo = bajo meta. Solo cuentan las respuestas con calificación; las preguntas sin responder se excluyen de cada métrica. La etiqueta Comentarios no tiene escala y no se incluye.</p>
+<p class="note">Metas según la ficha «KPIs del Contact Center» de Claro Ecuador; se comparan con el resultado de cada métrica tal como se calcula arriba. En tarjetas, gráficos y tabla: verde = en meta, rojo = bajo meta. Solo cuentan las respuestas con calificación; las preguntas sin responder se excluyen de cada métrica. La etiqueta Comentarios no tiene escala y no se incluye.</p>
 </div>
 
 <div class="cx-foot" role="contentinfo"><div class="cx-fin"><span class="cx-seg"><i></i><i></i><i></i></span><span><b>Claro</b> · Encuestas post-llamada (NPS) · Elaborado por <b>A365</b></span><span class="cx-r">Documento de uso interno · Confidencial</span></div></div>
@@ -517,7 +518,7 @@ function renderCharts(rowsAll){
   const valsM=agM.map(a=>a.score),nsM=agM.map(a=>a.n);
   if(chartMes) chartMes.destroy();
   chartMes=new Chart($('chartMes'),{type:'bar',
-    data:{labels:months.map(mesLabel),datasets:[{data:valsM,backgroundColor:months.map((k,i)=>!inRange(k)?neu:enMeta(m,valsM[i])===false?css('--det'):enMeta(m,valsM[i])?css('--pro'):brand),borderRadius:4,maxBarThickness:80}]},
+    data:{labels:months.map(mesLabel),datasets:[{data:valsM,backgroundColor:months.map((k,i)=>!inRange(k)?neu:enMeta(m,valsM[i])===false?css('--det'):enMeta(m,valsM[i])?css('--ok'):brand),borderRadius:4,maxBarThickness:80}]},
     options:baseOpts(m,valsM,nsM,i=>{setRange(...monthRange(months[i]));render()}),plugins:[barLabels,metaLine(m)]});
 
   // por día o semana (rango elegido)
@@ -544,15 +545,15 @@ function renderCharts(rowsAll){
       ctx.save();ctx.strokeStyle=css('--det');ctx.setLineDash([5,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
       ctx.setLineDash([]);ctx.fillStyle=css('--det');ctx.font='600 11.5px Arial, system-ui, sans-serif';ctx.textAlign='right';
       ctx.fillText('Promedio '+fmtScore(m,tot.score),right,y-5);ctx.restore()}}],
-    data:{labels,datasets:[{data:valsD,backgroundColor:valsD.map(v=>enMeta(m,v)===false?css('--det'):enMeta(m,v)?css('--pro'):brand),borderRadius:3,maxBarThickness:46}]},options:optsD});
+    data:{labels,datasets:[{data:valsD,backgroundColor:valsD.map(v=>enMeta(m,v)===false?css('--det'):enMeta(m,v)?css('--ok'):brand),borderRadius:3,maxBarThickness:46}]},options:optsD});
 }
 
 // ---------- tabla ----------
 function cell(m,a){
   if(!a.n) return `<td class="c empty">–</td>`;
   let col,pct;
-  if(m.meta!=null){const d=a.score-m.meta;col=d>=0?'pro':'det';pct=Math.round(8+Math.min(1,Math.abs(d)/30)*30)}
-  else{const t=m.type==='bin'?a.score/100:(a.score+100)/200;col=t>=.5?'pro':'det';pct=Math.round(Math.abs(t-.5)*2*38)}
+  if(m.meta!=null){const d=a.score-m.meta;col=d>=0?'ok':'det';pct=Math.round(8+Math.min(1,Math.abs(d)/30)*30)}
+  else{const t=m.type==='bin'?a.score/100:(a.score+100)/200;col=t>=.5?'ok':'det';pct=Math.round(Math.abs(t-.5)*2*38)}
   return `<td class="c${a.n<5?' low':''}" style="background:color-mix(in srgb,var(--${col}) ${pct}%,transparent)"><span class="val">${fmtScore(m,a.score)}</span><span class="nn">${a.n}</span></td>`;
 }
 function renderTable(rows){
@@ -627,7 +628,7 @@ function renderDet(rows){
   const totAg=items.filter(a=>a[2]==='Agente').length;
   const hasMx=items.some(a=>a[2]==='Proceso / Agente');
   $('detRank').innerHTML=`<thead><tr><th></th><th>Asesor</th><th>Supervisor</th><th>Agente</th>${hasMx?'<th>Proceso / Agente</th>':''}<th>Proceso</th><th>Cliente</th><th>Total análisis</th><th>% Agente</th></tr></thead><tbody>`+
-    (rk.length?rk.map((o,i)=>{const col=o.p>=50?'det':'pro';return `<tr${$('fAse').value===String(o.ai)?' class="on"':''}><td class="pos">${i+1}</td><td><button type="button" class="rowbtn" data-ase="${o.ai}">${esc(pretty(D.asesores[o.ai]))}</button></td><td>${esc(D.sups[supOfAse[o.ai]])}</td><td><b>${o.ag}</b></td>${hasMx?`<td class="${o.mx?'':'zero'}">${o.mx}</td>`:''}<td class="${o.pr?'':'zero'}">${o.pr}</td><td class="${o.cl?'':'zero'}">${o.cl}</td><td>${o.n}</td><td style="background:color-mix(in srgb,var(--${col}) ${Math.round(Math.abs(o.p-50)/50*35)}%,transparent)"><b>${nf1.format(o.p)}%</b></td></tr>`}).join(''):
+    (rk.length?rk.map((o,i)=>{const col=o.p>=50?'det':'ok';return `<tr${$('fAse').value===String(o.ai)?' class="on"':''}><td class="pos">${i+1}</td><td><button type="button" class="rowbtn" data-ase="${o.ai}">${esc(pretty(D.asesores[o.ai]))}</button></td><td>${esc(D.sups[supOfAse[o.ai]])}</td><td><b>${o.ag}</b></td>${hasMx?`<td class="${o.mx?'':'zero'}">${o.mx}</td>`:''}<td class="${o.pr?'':'zero'}">${o.pr}</td><td class="${o.cl?'':'zero'}">${o.cl}</td><td>${o.n}</td><td style="background:color-mix(in srgb,var(--${col}) ${Math.round(Math.abs(o.p-50)/50*35)}%,transparent)"><b>${nf1.format(o.p)}%</b></td></tr>`}).join(''):
       `<tr><td colspan="9" style="color:var(--muted)">Sin casos.</td></tr>`)+
     `</tbody>${N?`<tfoot><tr><td></td><td>Total</td><td></td><td>${totAg}</td>${hasMx?`<td>${items.filter(a=>a[2]==='Proceso / Agente').length}</td>`:''}<td>${items.filter(a=>a[2]==='Proceso').length}</td><td>${items.filter(a=>a[2]==='Cliente').length}</td><td>${N}</td><td>${nf1.format(pct(totAg,N))}%</td></tr></tfoot>`:''}`;
   $('detRank').querySelectorAll('[data-ase]').forEach(b=>b.onclick=()=>{
