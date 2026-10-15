@@ -2,11 +2,13 @@
 Actualiza el dashboard de encuestas post-llamada (NPS CLARO ECUADOR.html) con el Excel de NPS.
 
 Uso:
-    py actualizar_nps.py [ruta_excel]
+    py actualizar_nps.py [ruta_excel] [--sin-subir]
 
 Sin argumento toma el .xlsx más reciente de esta carpeta cuyo nombre empiece con "NPS"
 (ej. "NPS 18.09 A 13.10 DIARIO FINAL.xlsx"). Solo reemplaza los datos (const D = {...});
-el diseño y los cálculos del HTML no se tocan.
+el diseño y los cálculos del HTML no se tocan. Al terminar sube el HTML al repositorio
+Reporte-NPS (git pull, commit y push con las credenciales guardadas en Windows), salvo
+con --sin-subir.
 
 - Se lee la hoja de detalle (la que tiene las columnas Tipo, Calificacion e ID): una fila por
   pregunta respondida. Se agrupa por ID de llamada: NPS, FCR, EPA (Amabilidad), CES -> CS y OC.
@@ -20,6 +22,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 
 from openpyxl import load_workbook
@@ -172,9 +175,41 @@ def actualizar(ruta=None, html=HTML):
             print(f"    {n} x {t}")
 
 
+def git(*args):
+    r = subprocess.run(["git", *args], cwd=CARPETA, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} falló:\n{(r.stderr or r.stdout).strip()}")
+    return r.stdout.strip()
+
+
+def traer_cambios():
+    """Trae lo último de GitHub (la descarga del OUT también sube la presentación a este repositorio)."""
+    git("pull", "--ff-only", "origin", "main")
+
+
+def subir(ruta):
+    nombre = os.path.basename(HTML)
+    git("add", nombre)
+    if not git("status", "--porcelain", "--", nombre):
+        print("GitHub: el NPS no cambió, no hay nada que subir")
+        return
+    # misma identidad que usan las descargas del IN y el OUT, para que funcione en cualquier PC
+    git("-c", "user.name=1406-20", "-c", "user.email=1406-20@users.noreply.github.com",
+        "commit", "-m", f"Actualización NPS con {os.path.basename(ruta)}", "--", nombre)
+    git("push", "origin", "main")
+    print("Subido a GitHub: https://a365-calidad-claro-ec.github.io/Reporte-NPS/ (tarda unos minutos en verse)")
+
+
 if __name__ == "__main__":
+    args = [a for a in sys.argv[1:] if a != "--sin-subir"]
+    con_subida = "--sin-subir" not in sys.argv
     try:
-        actualizar(sys.argv[1] if len(sys.argv) > 1 else None)
+        ruta = args[0] if args else buscar_excel()
+        if con_subida:
+            traer_cambios()
+        actualizar(ruta)
+        if con_subida:
+            subir(ruta)
     except Exception as e:
         print("ERROR:", e)
         sys.exit(1)
