@@ -256,7 +256,7 @@ tr.tot td{background:var(--ppt-red)!important;color:#fff}
     <label class="btn" for="fileIn">Cargar base .xlsx</label>
     <input id="fileIn" type="file" accept=".xlsx,.xls,.xlsm" multiple hidden>
     <button class="btn" id="btnPresent" type="button" title="Presentar a pantalla completa (Esc para salir)">Presentar</button>
-    <button class="btn" id="btnPpt" type="button" title="Genera 14 láminas + Gracias con todas las campañas del mes seleccionado">Descargar PPT</button>
+    <button class="btn" id="btnPpt" type="button" title="Genera 14 láminas + Gracias con lo filtrado en pantalla (campañas, mes y días)">Descargar PPT</button>
     <button class="btn ghost" id="btnReset" type="button" title="Volver a la base que publica la descarga automática del Outbound">Base publicada</button>
     <details class="cfg"><summary class="btn ghost">Ajustes</summary>
       <div class="cfgp">
@@ -918,7 +918,8 @@ async function exportPptx(){
   const btn=$('#btnPpt'); btn.disabled=true; const old=btn.textContent; btn.textContent='Generando…';
   try{
     const pptx=new PptxGenJS(); pptx.layout='LAYOUT_WIDE'; pptx.title='Informe de Calidad Ventas'; pptx.company='A365';
-    const F=S.all, mes=S.mes, cur=F.filter(r=>r.ym===mes&&enDias(r)), meses=lastN(mes,3), prev=prevMonth(mes), prevR=prev?F.filter(r=>r.ym===prev):[];
+    // mismos filtros que la vista (campañas, mes y días)
+    const F=filt(), mes=S.mes, cur=F.filter(r=>r.ym===mes&&enDias(r)), meses=lastN(mes,3), prev=prevMonth(mes), prevR=prev?F.filter(r=>r.ym===prev):[];
     const bySem=n=>cur.filter(r=>r.sem===n);
     const ws=weeksOf(mes).filter(w=>bySem(w.n).length);           // solo semanas con monitoreos
     const wl=w=>`Semana ${w.n}`;
@@ -1150,7 +1151,8 @@ async function exportPptx(){
     s.addText('GRACIAS',{x:0,y:2.6,w:13.33,h:1.6,align:'center',valign:'middle',fontFace:FONT,fontSize:72,bold:true,color:C.brand,charSpacing:6,isTextBox:true});
     footer(s);
 
-    const fname=`Informe_Calidad_Ventas_${ymLabel(mes).replace(' ','_')}.pptx`;
+    const nombre=[ymLabel(mes),...[...S.camps].sort(),DIAS.sel.size?DIAS.texto():''].filter(Boolean).join(' ');
+    const fname=`Informe_Calidad_Ventas_${nombre.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'')}.pptx`;
     window.__lastPptx=pptx;
     if(window.claude&&window.claude.use){
       if(!DL_READY){toast('Preparando la descarga, intenta de nuevo en unos segundos.');return}
