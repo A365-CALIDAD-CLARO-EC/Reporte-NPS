@@ -363,10 +363,12 @@ function parseDate(v){
 const ymKey = d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 const ymLabel = k=>{const [y,m]=k.split('-');return MESES[+m-1]+' '+y};
 const ymShort = k=>{const [y,m]=k.split('-');return MESES[+m-1].toUpperCase()};
-// semana mensual del cliente: 1–7, 8–14, 15–21, 22–fin de mes
+// semana mensual del cliente: lunes a domingo, cortada en el mes (1–4, 5–11, … en oct-2026)
 function weekOfMonth(d){return semMes(ymd(d))}
 function weeksOf(ym){
-  return [1,2,3,4].map(n=>{const [a,b]=semRango(ym,n);return {n,a,b,label:'Sem '+n,rango:dd2(a)+'–'+dd2(b)}});
+  const out=[],last=new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate();
+  for(let n=1;;n++){const [a,b]=semRango(ym,n);if(a>last)break;out.push({n,a,b,label:'Sem '+n,rango:dd2(a)+'–'+dd2(b)})}
+  return out;
 }
 
 /* ================= lectura de la base ================= */
@@ -487,12 +489,13 @@ function planKey(txt){
 }
 
 /* ===== Semana mensual del cliente y selector de días (como el filtro de Excel) =====
-   Semana 1 = días 1–7 · Semana 2 = 8–14 · Semana 3 = 15–21 · Semana 4 = 22 a fin de mes */
+   Semanas de lunes a domingo cortadas en el mes: la 1 va del día 1 al primer domingo y la última del último lunes a fin de mes */
 const MES_CORTO=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const MES_LARGO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIA_CORTO=['do','lu','ma','mi','ju','vi','sá'];
-const semMes=ds=>{const d=+ds.slice(8,10);return d<=7?1:d<=14?2:d<=21?3:4};
-const semRango=(ym,n)=>{const last=new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate(),a=[1,8,15,22][n-1];return [a,n<4?a+6:last]};
+const lunesOff=ym=>(new Date(+ym.slice(0,4),+ym.slice(5,7)-1,1).getDay()+6)%7;   // días del mes antes del primer lunes
+const semMes=ds=>Math.floor((+ds.slice(8,10)-1+lunesOff(ds.slice(0,7)))/7)+1;
+const semRango=(ym,n)=>{const last=new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate(),off=lunesOff(ym);return [Math.max(1,7*(n-1)-off+1),Math.min(last,7*n-off)]};
 const dd2=n=>String(n).padStart(2,'0');
 const semLabel=ds=>{const ym=ds.slice(0,7),n=semMes(ds),[a,b]=semRango(ym,n);return `Semana ${n} ${MES_CORTO[+ym.slice(5,7)-1]} (${dd2(a)}–${dd2(b)})`};
 const semOrden=ds=>ds.slice(0,7)+'-'+semMes(ds);
