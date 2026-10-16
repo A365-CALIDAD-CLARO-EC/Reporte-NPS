@@ -234,6 +234,9 @@ header h1{font-family:Arial,"Segoe UI",sans-serif;font-stretch:normal;color:#000
 .det-grid .panel,.obs li{border-radius:0}
 .mmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:-2px}
 .mmeta b{color:var(--ink)}
+.mprev{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:-4px}
+.mprev b{color:var(--ink)}
+.delta{font-weight:700;white-space:nowrap}.delta.up{color:var(--ok-txt)}.delta.dn{color:var(--det)}.delta.eq{color:var(--muted)}
 .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11.5px;font-weight:600}
 :root{--ok:#1E9A4B;--ok-txt:#14743A}
 .pill.ok{background:color-mix(in srgb,var(--ok) 14%,#fff);color:var(--ok-txt)}.pill.bad{background:color-mix(in srgb,var(--det) 12%,#fff);color:var(--det)}
@@ -420,7 +423,25 @@ function agg(rows,m){
 const fmtScore=(m,s)=>s==null?'–':(m.type==='bin'?nf1.format(s)+' %':nf1.format(s));
 
 // ---------- tarjetas ----------
+// mes anterior completo (mismos filtros) cuando el periodo elegido está dentro de un solo mes
+function mesAnterior(){
+  const d1=$('fDesde').value||DMIN,d2=$('fHasta').value||DMAX;
+  if(d1.slice(0,7)!==d2.slice(0,7)) return null;
+  const [y,m]=d1.slice(0,7).split('-').map(Number),k=iso(new Date(y,m-2,1)).slice(0,7);
+  if(!months.includes(k)) return null;
+  return {k,rows:filtered(true).filter(r=>r[0].startsWith(k))};
+}
+function comparativo(m,a,prev){
+  if(!prev) return '';
+  const b=agg(prev.rows,m);
+  if(b.score==null) return `<div class="mprev">Cierre ${mesLabel(prev.k).split(' ')[0]}: <b>sin respuestas</b></div>`;
+  let d='';
+  if(a.score!=null){const r1=v=>Math.round(v*10)/10,x=Math.round((r1(a.score)-r1(b.score))*10)/10;   // con los valores que se muestran, para que la resta cuadre
+    d=`<span class="delta ${x>0?'up':x<0?'dn':'eq'}" title="Diferencia contra el cierre del mes anterior">${x>0?'▲ +':x<0?'▼ ':'= '}${nf1.format(x)} pts</span>`}
+  return `<div class="mprev" title="${b.n} respuestas en ${mesLabel(prev.k)}">Cierre ${mesLabel(prev.k).split(' ')[0]}: <b>${fmtScore(m,b.score)}</b>${d}</div>`;
+}
 function renderMetrics(rows){
+  const prev=mesAnterior();
   $('metrics').innerHTML=M.map((m,mi)=>{
     const a=agg(rows,m),p=x=>a.n?x/a.n*100:0;
     const order=m.type==='bin'?['det','pro']:['det','ofe','neu','pro'].filter(c=>m.cats.some(z=>z[0]===c));
@@ -432,6 +453,7 @@ function renderMetrics(rows){
         <span class="mfull">${m.full}</span>
       </button>
       ${big}
+      ${comparativo(m,a,prev)}
       <div class="mmeta">Meta: <b>${metaLbl(m)}</b>${enMeta(m,a.score)==null?'':`<span class="pill ${enMeta(m,a.score)?'ok':'bad'}">${enMeta(m,a.score)?'En meta':'Bajo meta'}</span>`}</div>
       <div class="bar" role="img" aria-label="${m.cats.map(([c,t])=>t+' '+nf0.format(p(a[c]))+'%').join(', ')}">${order.map(c=>`<span style="width:${p(a[c])}%;background:var(--${c})"></span>`).join('')}</div>
       <div class="legend${dim?' dim':''}">${m.cats.map(([c,t])=>{
