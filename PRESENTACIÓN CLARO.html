@@ -235,23 +235,13 @@ tr.tot td{background:var(--ppt-red)!important;color:#fff}
 .fit th{padding:2px 4px;line-height:1.1}
 .fit td input{padding:0 3px;height:17px;font-size:11px}
 .fit .pill{padding:0 4px;font-size:9.5px}
-/* selector de días (como filtro de Excel) */
-.dpk{position:relative}
-.dpk summary{list-style:none;cursor:pointer;border:1px solid #DFE3EA;border-radius:6px;background:#fff;padding:6px 28px 6px 10px;font-size:14px;font-weight:500;color:#16202E;min-width:150px;white-space:nowrap;position:relative;text-transform:none;letter-spacing:0}
-.dpk summary::-webkit-details-marker{display:none}
-.dpk summary::after{content:"▾";position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#6B7686}
-.dpk.on summary{border-color:#C00000;color:#C00000;font-weight:700}
-.dpk-p{position:absolute;z-index:60;top:calc(100% + 4px);left:0;background:#fff;border:1px solid #DFE3EA;border-radius:8px;box-shadow:0 10px 30px rgba(22,32,46,.15);padding:10px 12px;width:min(320px,88vw);max-height:430px;overflow:auto;text-transform:none;letter-spacing:0;font-weight:400;font-size:13px;color:#16202E;line-height:1.35}
-.dpk-p label{display:flex!important;flex-direction:row!important;align-items:center;justify-content:flex-start;gap:6px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:#16202E;margin:0;padding:0;min-width:0;max-width:none;width:auto;flex:none}
-.dpk-p input[type=checkbox]{width:14px!important;height:14px!important;min-width:0!important;margin:0!important;padding:0!important;flex:0 0 14px!important;accent-color:#C00000;border:0;box-shadow:none}
-.dpk-all{font-weight:700!important;padding-bottom:6px;border-bottom:1px solid #DFE3EA}
-.dpk-m{font-weight:700;margin:8px 0 2px;color:#C00000}
-.dpk-w{margin:4px 0 6px}
-.dpk-w>label{font-weight:600!important}
-.dpk-w small,.dpk-d small{color:#8A96A8;font-size:11px}
-.dpk-d{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px 8px;padding-left:22px;margin-top:3px}
-.dpk-d label{color:#4A5568!important;font-variant-numeric:tabular-nums}
-.dpk-e{margin:0;color:#6B7686}
+/* filtro de días por rango */
+.rng{display:flex;align-items:center;gap:4px;border:1px solid #DFE3EA;border-radius:6px;background:#fff;padding:2px 4px;white-space:nowrap;text-transform:none;letter-spacing:0;font-weight:400}
+.rng.on{border-color:#C00000;box-shadow:0 0 0 1px #C00000 inset}
+.rng input[type=date]{border:0!important;background:transparent!important;font:inherit;font-size:14px;color:#16202E;padding:3px 2px!important;width:auto!important;min-width:0;max-width:none;box-shadow:none!important;outline-offset:1px}
+.rng-s{color:#6B7686;font-size:13px}
+.rng-x{border:0;background:#C00000;color:#fff;border-radius:50%;width:20px;height:20px;padding:0;line-height:20px;font-size:14px;font-weight:700;cursor:pointer;flex:0 0 20px}
+.rng-x[hidden]{display:none}
 .fit table.plan td{padding:4px 6px}
 </style>
 
@@ -488,63 +478,39 @@ function planKey(txt){
   return null;
 }
 
-/* ===== Semana mensual del cliente y selector de días (como el filtro de Excel) =====
-   Semanas de lunes a domingo cortadas en el mes: la 1 va del día 1 al primer domingo y la última del último lunes a fin de mes */
-const MES_CORTO=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-const MES_LARGO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const DIA_CORTO=['do','lu','ma','mi','ju','vi','sá'];
+/* ===== Semana mensual del cliente y filtro de días por rango =====
+   Semanas de lunes a domingo cortadas en el mes: la 1 va del día 1 al primer domingo y la última del último lunes a fin de mes */
+const MES_CORTO=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const MES_LARGO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIA_CORTO=['do','lu','ma','mi','ju','vi','sá'];
 const lunesOff=ym=>(new Date(+ym.slice(0,4),+ym.slice(5,7)-1,1).getDay()+6)%7;   // días del mes antes del primer lunes
-const semMes=ds=>Math.floor((+ds.slice(8,10)-1+lunesOff(ds.slice(0,7)))/7)+1;
-const semRango=(ym,n)=>{const last=new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate(),off=lunesOff(ym);return [Math.max(1,7*(n-1)-off+1),Math.min(last,7*n-off)]};
-const dd2=n=>String(n).padStart(2,'0');
-const semLabel=ds=>{const ym=ds.slice(0,7),n=semMes(ds),[a,b]=semRango(ym,n);return `Semana ${n} ${MES_CORTO[+ym.slice(5,7)-1]} (${dd2(a)}–${dd2(b)})`};
-const semOrden=ds=>ds.slice(0,7)+'-'+semMes(ds);
-function DiasPicker(host,onChange){
-  const sel=new Set();let sig='',fechas=[];
-  host.innerHTML='<details class="dpk"><summary><span class="dpk-v">Todos</span></summary><div class="dpk-p"></div></details>';
-  const det=host.querySelector('details'),pan=host.querySelector('.dpk-p'),val=host.querySelector('.dpk-v');
-  document.addEventListener('click',e=>{if(det.open&&!det.contains(e.target))det.open=false});
-  const diasDe=w=>fechas.filter(d=>semOrden(d)===w);
-  function texto(){
-    const s=[...sel].sort();if(!s.length)return 'Todos';
-    const ws=[...new Set(s.map(semOrden))];
-    if(ws.every(w=>diasDe(w).every(d=>sel.has(d)))&&s.every(d=>ws.includes(semOrden(d))))
-      return ws.length===1?semLabel(s[0]).replace(/ \(.*/,''):ws.length+' semanas';
-    if(s.length===1)return `${+s[0].slice(8,10)} ${MES_CORTO[+s[0].slice(5,7)-1]}`;
-    return `${s.length} días`;
-  }
-  function sync(){
-    pan.querySelectorAll('input[data-d]').forEach(i=>i.checked=sel.has(i.dataset.d));
-    pan.querySelectorAll('input[data-w]').forEach(i=>{const ds=diasDe(i.dataset.w),k=ds.filter(d=>sel.has(d)).length;i.checked=k>0&&k===ds.length;i.indeterminate=k>0&&k<ds.length});
-    const t=pan.querySelector('input[data-all]');if(t)t.checked=!sel.size;
-    val.textContent=texto();det.classList.toggle('on',sel.size>0);
-  }
-  pan.addEventListener('change',e=>{const i=e.target;
-    if(i.dataset.all!=null)sel.clear();
-    else if(i.dataset.w)diasDe(i.dataset.w).forEach(d=>i.checked?sel.add(d):sel.delete(d));
-    else if(i.dataset.d)i.checked?sel.add(i.dataset.d):sel.delete(i.dataset.d);
-    sync();onChange();
-  });
-  return {
-    sel,
-    has:ds=>!sel.size||(ds!=null&&sel.has(ds)),
-    clear(){sel.clear();sync()},
-    texto,
-    setDates(lista){
-      const s=lista.join(',');if(s===sig){sync();return}
-      sig=s;fechas=lista.slice().sort();[...sel].forEach(d=>{if(!fechas.includes(d))sel.delete(d)});
-      let h='<label class="dpk-all"><input type="checkbox" data-all> Todos los días</label>';
-      [...new Set(fechas.map(d=>d.slice(0,7)))].forEach(ym=>{
-        h+=`<div class="dpk-m">${MES_LARGO[+ym.slice(5,7)-1]} ${ym.slice(0,4)}</div>`;
-        [...new Set(fechas.filter(d=>d.startsWith(ym)).map(semOrden))].forEach(w=>{
-          const ds=diasDe(w),[a,b]=semRango(ym,+w.slice(-1));
-          h+=`<div class="dpk-w"><label><input type="checkbox" data-w="${w}"> Semana ${w.slice(-1)} <small>(${dd2(a)}–${dd2(b)})</small></label><div class="dpk-d">`+
-            ds.map(d=>`<label><input type="checkbox" data-d="${d}"> ${d.slice(8,10)} <small>${DIA_CORTO[new Date(d+'T12:00:00').getDay()]}</small></label>`).join('')+'</div></div>';
-        });
-      });
-      pan.innerHTML=fechas.length?h:'<p class="dpk-e">Sin fechas en la base.</p>';sync();
-    }
-  };
+const semMes=ds=>Math.floor((+ds.slice(8,10)-1+lunesOff(ds.slice(0,7)))/7)+1;
+const semRango=(ym,n)=>{const last=new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate(),off=lunesOff(ym);return [Math.max(1,7*(n-1)-off+1),Math.min(last,7*n-off)]};
+const dd2=n=>String(n).padStart(2,'0');
+const semLabel=ds=>{const ym=ds.slice(0,7),n=semMes(ds),[a,b]=semRango(ym,n);return `Semana ${n} ${MES_CORTO[+ym.slice(5,7)-1]} (${dd2(a)}–${dd2(b)})`};
+const semOrden=ds=>ds.slice(0,7)+'-'+semMes(ds);
+// Filtro de días por rango (Desde – Hasta). Vacío = todos los días.
+function DiasPicker(host,onChange){
+  let min='',max='';
+  host.innerHTML='<div class="rng"><input type="date" class="rng-a" aria-label="Desde"><span class="rng-s">a</span><input type="date" class="rng-b" aria-label="Hasta"><button type="button" class="rng-x" title="Quitar el rango" aria-label="Quitar el rango">×</button></div>';
+  const ia=host.querySelector('.rng-a'),ib=host.querySelector('.rng-b'),bx=host.querySelector('.rng-x'),box=host.querySelector('.rng');
+  const rango=()=>{let a=ia.value,b=ib.value;if(a&&b&&a>b)[a,b]=[b,a];return [a,b]};
+  const activo=()=>!!(ia.value||ib.value);
+  const pinta=()=>{box.classList.toggle('on',activo());bx.hidden=!activo()};
+  const fmt=ds=>`${+ds.slice(8,10)} ${MES_CORTO[+ds.slice(5,7)-1]}`;
+  ia.addEventListener('change',()=>{if(ia.value&&!ib.value)ib.value=ia.value;pinta();onChange()});
+  ib.addEventListener('change',()=>{if(ib.value&&!ia.value)ia.value=ib.value;pinta();onChange()});
+  bx.addEventListener('click',()=>{ia.value='';ib.value='';pinta();onChange()});
+  pinta();
+  return {
+    get sel(){return {size:activo()?1:0}},
+    has(ds){if(!activo())return true;if(ds==null)return false;const [a,b]=rango();return (!a||ds>=a)&&(!b||ds<=b)},
+    clear(){ia.value='';ib.value='';pinta()},
+    texto(){const [a,b]=rango();if(!a&&!b)return 'Todos';if(a===b)return fmt(a);
+      return a.slice(0,7)===b.slice(0,7)?`${+a.slice(8,10)}–${fmt(b)}`:`${fmt(a)}–${fmt(b)}`},
+    setDates(lista){const f=lista.slice().sort();min=f[0]||'';max=f[f.length-1]||'';
+      [ia,ib].forEach(i=>{i.min=min;i.max=max;if(i.value&&(i.value<min||i.value>max))i.value=''});pinta()}
+  };
 }
 const ymd=d=>d.getFullYear()+'-'+dd2(d.getMonth()+1)+'-'+dd2(d.getDate());
 
