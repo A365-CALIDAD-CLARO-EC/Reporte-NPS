@@ -375,7 +375,7 @@ function buildRecords(aoa){
   const tipCol=Object.keys(idx).find(k=>k.includes('TIPIFIC'));
   const C={
     rec:col('RecordedDate'), id:col('ResponseId'), fm:col('Fecha de Monitoreo'), fi:col('Fecha de interacción'),
-    ase:col('Nombre de Asesor'), usu:col('Usuario de Asesor'), camp:col(['CAMPAÑA']), campOut:col('CAMPAÑAS OUTBOUND'), campIn:col('CAMPAÑAS'),
+    ase:col('Nombre de Asesor'), usu:col('Usuario de Asesor'), camp:col(['CAMPAÑA']), campOut:col('CAMPAÑAS OUTBOUND'), campIn:col('CAMPAÑAS'), seg:col(['SEGMENTO']),
     ing:col(['FECHA DE INGRESO','FECHA INGRESO','FN']), gest:col('Gestión Cola'), tipo:col('TIPO DE MONITOREO'), prod:col('PRODUCTO OFERTADO'),
     efe:col(['Efectivización','Concretó la venta en la llamada']), causa:col('Causa Raiz',0), cProc:col('Causa Raiz',1), cAg:col('Causa Raiz',2), cCli:col('Causa Raiz',3),
     mot:col(['ENTREGA','Porque no se concreto la venta ?']), obs:col(['OBSERVACIÓN']), retro:col(['Q75','APLICA RETROALIMENTACION']), ec:col('EC'),
@@ -395,6 +395,8 @@ function buildRecords(aoa){
     const items={};PECS.forEach(p=>p.items.forEach(([c])=>items[c]=itemVal(g(itemIdx[c]))));
     const gest=nameClean(g(C.gest));
     let camp=nameClean(g(C.camp))||campOf(gest,g(C.campOut),g(C.campIn));
+    // Ventas Inbound separadas por segmento: FIJO -> IN HOGAR, MOVIL -> IN MOVIL
+    if(camp==='PORTABILIDAD INB'||norm(gest)==='INBOUND'){const seg=norm(g(C.seg));if(seg==='FIJO')camp='IN HOGAR';else if(seg==='MOVIL')camp='IN MOVIL';}
     let ec=parseFloat(String(g(C.ec)??'').replace(',','.'));
     if(isNaN(ec)){
       if(C.ec>=0||!Object.values(items).some(v=>v)) continue;   // la base trae EC y viene vacío: encuesta incompleta o de prueba
