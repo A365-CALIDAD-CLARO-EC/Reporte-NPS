@@ -624,6 +624,72 @@ function topList(map,n){return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0
 function countBy(rs,f){const m=new Map();rs.forEach(r=>{const k=f(r);if(k!=null)m.set(k,(m.get(k)||0)+1)});return m}
 function statusDist(vals){const n=vals.filter(v=>v!=null).length;if(!n)return ' sin datos';const c={EXCELENTE:0,BUENO:0,REGULAR:0,SEGUIMIENTO:0};vals.forEach(v=>{const s=statusOf(v);if(s)c[s]++});
   return '<ul>'+Object.entries(c).map(([k,v])=>`<li><b>${Math.round(v/n*100)}%</b> en estatus ${k.toLowerCase()} (${v})</li>`).join('')+'</ul>'}
+/* ================= Planes de acción (láminas 12, 13 y 14) =================
+   Fecha de refuerzo = solicitud + 3 días (como el informe del cliente). Todo lo sugerido se puede editar en la lámina. */
+const ddmmaa=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+const PA_HOY=()=>ddmmaa(new Date()), PA_REF=()=>{const d=new Date();d.setDate(d.getDate()+3);return ddmmaa(d)};
+const PA_POCO=/EQUIVOCAD|NO APLICA|NO CONTESTA|SIN INTERACC|NO HAY INTERACC/;
+// evaluación más ilustrativa del asesor: con escenario detallado y que no sea número equivocado / sin interacción
+function paEjemplo(rs){return rs.slice().sort((x,y)=>(PA_POCO.test(norm(x.mot))-PA_POCO.test(norm(y.mot)))||(String(y.mot||'').length-String(x.mot||'').length))[0]}
+// observación sin ID de llamada, teléfono, fechas, horas, TMO ni el nombre del asesor
+function limpiaObs(t,a){
+  let s=String(t??'').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,' ').replace(/\b0?9\d{8}\b/g,' ')
+    .replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,' ').replace(/TMO\s*:?\s*\d{1,2}:\d{2}(:\d{2})?/gi,' ').replace(/\b\d{1,2}:\d{2}(:\d{2})?(\s*-\s*\d{1,2}:\d{2}(:\d{2})?)?/g,' ')
+    .replace(/\b(OUT|INB)\s*-\s*MAG\s*-\s*/gi,' ').replace(/\b(LUNES|M?ARTES|MI[EÉ]RCOLES|JUEVES|VIERNES|S[AÁ]BADO|DOMINGO)\b/gi,' ')
+    .replace(/\b(NO VENTA|VENTA)\s+(MIGRACI[OÓ]N|RENOVACI[OÓ]N|PORTABILIDAD|HOGAR)\b/gi,' ').replace(/\b(MIGRACI[OÓ]N|RENOVACI[OÓ]N)\b(?=\s+[A-Z])/g,' ');
+  if(a){const re=new RegExp(a.trim().split(/\s+/).map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('\\s+'),'gi');s=s.replace(re,' ')}
+  return s.replace(/\b(LLG|NO PA|PA SI)\b/g,' ').replace(/\s+/g,' ').replace(/^[\s,.;:–-]+/,'').trim();
+}
+const paEscenario=(r,a)=>trunc(r.mot&&r.mot.length>25?r.mot:limpiaObs(r.obs,a),170);
+const paPlan=rs=>rs.map(r=>planKey(r.prod)).find(Boolean)||'—';
+
+// 12 · PEC Negociación: una fila por asesor con todos los sub parámetros que incumplió
+function paNeg(cur){
+  return [...groupBy(cur.filter(r=>PEC.NEG.items.some(([c])=>r.items[c]==='N')),r=>r.ase).entries()].map(([a,rs])=>{
+    const subs=PEC.NEG.items.map(([c,,l])=>({c,l,n:rs.filter(r=>r.items[c]==='N').length})).filter(x=>x.n).sort((x,y)=>y.n-x.n);
+    return {a,n:rs.length,subTxt:subs.map(x=>`${x.l} (${x.n})`).join(' · '),esc:paEscenario(paEjemplo(rs),a),plan:paPlan(rs),
+      rec:[...new Set(subs.slice(0,2).map(x=>RECO[x.c]).filter(Boolean))].join(' // ')||'Reforzar el parámetro con el asesor.',k:subs.length};
+  }).sort((x,y)=>y.n-x.n||y.k-x.k);
+}
+
+// 13 · Causa raíz agente: corrección y acción según el detalle que registra el analista
+const AG_CAT=[
+  [/AGENDA/,'No agendar ante la primera objeción: rebatir con los beneficios del plan antes de proponer una nueva llamada.','Role play de rebate de agendamiento: identificar la objeción real y presentar el beneficio que la resuelve; agendar solo con fecha y hora confirmadas.'],
+  [/NO INTERESAD|NO DESPIERTA|NO CREA (LA )?NECESIDAD/,'Despertar el interés con un escenario de necesidad antes de ofrecer el plan.','Crear escenarios de la vida cotidiana (trabajo, estudios, familia, emergencias) que muestren la utilidad del plan cuando el cliente dice no estar interesado.'],
+  [/INCOMPLET|INCORRECT/,'Completar el rebate con información correcta y completa del plan.','Repasar los argumentos de rebate por tipo de objeción y validarlos con escucha de llamadas.'],
+  [/SONRISA|DESANIMAD|ACTITUD|HABILIDADES BLANDAS/,'Mejorar el tono y la actitud comercial durante la llamada.','Retroalimentación con audio sobre sonrisa telefónica y energía en el rebate; práctica del speech con entonación.'],
+  [/EQUIVOCAD/,'Validar al titular antes de iniciar el ofrecimiento.','Reforzar la validación del titular y el manejo de números equivocados (consultar si conoce al titular o si le interesa la oferta).'],
+  [/OFRECIMIENTO|OFERTA|REBAT/,'Rebatir el ofrecimiento con los beneficios del plan y la promoción vigente.','Ofrecimiento escalonado: presentar el plan que se ajusta al uso del cliente y rebatir con promociones vigentes antes de cerrar.']];
+const AG_DEF=['Realizar un mayor sondeo de necesidades y rebatir antes de cerrar la llamada.','Realizar un mayor sondeo de necesidades y ofrecimiento escalonado; rebatir con beneficios del plan y promociones vigentes antes de cerrar.'];
+function paAg(czCur){
+  return [...groupBy(czCur.filter(r=>r.causa==='AGENTE'),r=>r.ase).entries()].map(([a,rs])=>{
+    const nom=norm(a).split(' ');
+    const det=topList(countBy(rs,r=>{const d=norm(r.cAg);return d&&!d.split(' ').every(w=>nom.includes(w))?d:null}),2).map(([d,n])=>d+(n>1?` (${n})`:''));
+    const r0=paEjemplo(rs), busca=t=>AG_CAT.find(([re])=>re.test(norm(t)));
+    // primero el detalle de causa raíz que marca el analista; si no clasifica, el escenario y la observación
+    const cat=busca(rs.map(r=>r.cAg).join(' '))||busca(r0.mot)||busca(r0.obs)||[null,...AG_DEF];
+    const rec=(String(r0.mot||'')+' '+String(r0.obs||'')).match(/SE RECOMIENDA[^.]{10,}/i);
+    if(rec&&!/REBAT|NECESIDAD|AGEND|OFREC|OFERT|VENTA|INTERES|CIERR|CERRAR|PLAN|BENEFIC|SONDE|OBJECI/.test(norm(rec[0])))rec.length=0;
+    return {a,n:rs.length,esc:trunc((det.length?det.join(' · ')+' – ':'')+paEscenario(r0,a),190),cor:rec&&rec[0]?trunc(rec[0],220):cat[1],acc:cat[2]};
+  }).sort((x,y)=>y.n-x.n);
+}
+
+// 14 · No ventas por asesor: acción según los escenarios principales
+const NV_ACC={'Asesor no sondea / no rebate':'Sondear necesidades y rebatir con los beneficios del plan antes de cerrar; ofrecimiento escalonado.',
+  'Cliente corta la llamada':'Captar el interés en los primeros segundos con el gancho comercial y confirmar la disponibilidad del cliente.',
+  'Mala experiencia con Claro':'Reconocer la mala experiencia con empatía y presentar el beneficio que resuelve su inconveniente antes de ofertar.',
+  'Agenda / cliente ocupado':'Confirmar fecha y hora concretas del nuevo contacto y dejar mencionado el beneficio principal.',
+  'Sin interacción / audio':'Verificar audio y conexión al iniciar; sin interacción, cerrar según protocolo y reprogramar el contacto.',
+  'Precio / recursos económicos':'Ofrecer el plan que se ajusta al presupuesto del cliente y resaltar el ahorro frente a sus recargas.',
+  'Prefiere prepago / recargas':'Comparar el gasto en recargas con el plan y mostrar los beneficios adicionales del pospago.',
+  'No interesado / conforme':'Crear escenarios de necesidad cuando el cliente se siente conforme con su servicio.',
+  'Solicitud distinta a la oferta':'Atender o derivar la solicitud al canal correcto y retomar el ofrecimiento comercial.',
+  'Tiempo de espera':'Tener abiertos los materiales de apoyo desde el inicio para evitar esperas.',
+  'No es el titular':'Validar al titular y, si no está, agendar el contacto con él.'};
+function paNV(nvA){
+  return nvA.map(([a,rs])=>{const t=topList(countBy(rs,motivoCat),3);
+    return {a,n:rs.length,esc:t.map(([c,v])=>`${c} (${v})`).join('; '),acc:[...new Set(t.slice(0,2).map(([c])=>NV_ACC[c]).filter(Boolean))].join(' // ')||'Revisar las llamadas con el asesor y reforzar rebate y cierre según el escenario.'}});
+}
 const chunk=(rows,per)=>{const o=[];for(let i=0;i<rows.length;i+=per)o.push(rows.slice(i,i+per));return o.length?o:[[]]};
 const pgT=(t,i,n)=>n>1?`${t} (${i+1}/${n})`:t;
 const emptyBox=t=>`<div class="empty">${esc(t)}</div>`;
@@ -796,33 +862,29 @@ function render(){
     </div>
     ${hasTip?'':'<div class="legend">La base no trae columna de tipificación; se usa “Efectivización” y el motivo de no venta.</div>'}`);
 
-  /* ---- 12, 13, 14: una lámina cada uno, con los casos principales ---- */
-  const hoy=new Date(), hoyTxt=String(hoy.getDate()).padStart(2,'0')+'/'+String(hoy.getMonth()+1).padStart(2,'0')+'/'+hoy.getFullYear();
+  /* ---- 12, 13, 14: una lámina cada uno, con los casos principales (ver paNeg / paAg / paNV) ---- */
+  const hoyTxt=PA_HOY(), refTxt=PA_REF();
   const ed=(key,def,cls='')=>{const v=store.get('pa:'+key,null);return `<td contenteditable="true" class="${cls}" data-pa="${esc(key)}">${esc(v??def)}</td>`};
-  const negRows=[];for(const [c,,l] of PEC.NEG.items){for(const [a,rs] of groupBy(cur.filter(r=>r.items[c]==='N'),r=>r.ase))negRows.push({a,c,l,rs})}
-  negRows.sort((x,y)=>y.rs.length-x.rs.length);
-  const ex=r=>trunc(r.mot&&r.mot.length>25?r.mot:r.obs,170);
   const more=(tot,shown,what)=>tot>shown?` Se muestran los ${shown} ${what} con más casos de ${tot}.`:'';
   const editNote=t=>`<div class="legend">Celdas en amarillo editables; se guardan en este navegador y salen así en el PPT.${t}</div>`;
   const PA_N={12:6,13:6,14:8};
-  const n12=negRows.slice(0,PA_N[12]);
-  add(12,'PLAN DE ACCIÓN PEC Negociación',n12.length?`<div class="fit"><div class="fi"><table class="plan"><colgroup><col style="width:86px"><col style="width:86px"><col style="width:150px"><col style="width:170px"><col style="width:46px"><col><col style="width:140px"><col style="width:250px"><col style="width:110px"></colgroup>
-    <thead><tr><th>Fecha de solicitud</th><th>Fecha de refuerzo</th><th class="l">Sub parámetro (PEC NEG)</th><th class="l">Asesores que incumplieron</th><th>Casos</th><th class="l">Escenario</th><th class="l">Plan que debió ofertar</th><th class="l">Recomendación</th><th>Responsable</th></tr></thead><tbody>
-    ${n12.map(x=>{const k=mes+'|neg|'+x.a+'|'+x.c;return `<tr>${ed(k+'|fs',hoyTxt)}${ed(k+'|fr','PENDIENTE')}<td class="wrap">${esc(x.l)}</td><td class="wrap">${esc(x.a)}</td><td>${x.rs.length}</td><td class="wrap">${esc(ex(x.rs[0]))}</td><td class="wrap">${esc(trunc(x.rs[0].prod,60))}</td>${ed(k+'|rec',RECO[x.c]||'Reforzar el parámetro con el asesor.','wrap')}${ed(k+'|resp','CALIDAD / CAPACITACIÓN','wrap')}</tr>`}).join('')}
-    </tbody></table></div></div>${editNote(more(negRows.length,n12.length,'incumplimientos'))}`:emptyBox('Sin incumplimientos de PEC Negociación en el periodo.'));
+  const neg=paNeg(cur), n12=neg.slice(0,PA_N[12]);
+  add(12,'PLAN DE ACCIÓN PEC Negociación',n12.length?`<div class="fit"><div class="fi"><table class="plan"><colgroup><col style="width:78px"><col style="width:78px"><col style="width:170px"><col style="width:140px"><col style="width:44px"><col><col style="width:100px"><col style="width:240px"><col style="width:96px"><col style="width:76px"></colgroup>
+    <thead><tr><th>Fecha de solicitud</th><th>Fecha de refuerzo</th><th class="l">Sub parámetros (PEC NEG)</th><th class="l">Asesor</th><th>Casos</th><th class="l">Escenario</th><th class="l">Plan que debió ofertar</th><th class="l">Recomendación</th><th>Responsable</th><th>Estado</th></tr></thead><tbody>
+    ${n12.map(x=>{const k=mes+'|neg|'+x.a;return `<tr>${ed(k+'|fs',hoyTxt)}${ed(k+'|fr',refTxt)}<td class="wrap">${esc(x.subTxt)}</td><td class="wrap">${esc(x.a)}</td><td>${x.n}</td><td class="wrap">${esc(x.esc)}</td><td class="wrap">${esc(x.plan)}</td>${ed(k+'|rec',x.rec,'wrap')}${ed(k+'|resp','CALIDAD / CAPACITACIÓN','wrap')}${ed(k+'|est','PENDIENTE','wrap')}</tr>`}).join('')}
+    </tbody></table></div></div>${editNote(more(neg.length,n12.length,'asesores'))}`:emptyBox('Sin incumplimientos de PEC Negociación en el periodo.'));
 
-  const accAg={'Asesor no sondea / no rebate':'Realizar un mayor sondeo de necesidades y ofrecimiento escalonado; rebatir con beneficios del plan y promociones vigentes antes de cerrar.','Cliente corta la llamada':'Captar el interés en los primeros segundos con el gancho comercial y confirmar disponibilidad del cliente.','Tiempo de espera':'Tener abiertos los materiales de apoyo desde el inicio para evitar esperas.'};
-  const n13=ag.slice(0,PA_N[13]);
-  add(13,'PLAN DE ACCIÓN Causa Raíz',n13.length?`<div class="fit"><div class="fi"><table class="plan"><colgroup><col style="width:200px"><col style="width:50px"><col style="width:260px"><col><col style="width:330px"></colgroup>
-    <thead><tr><th class="l">Agente</th><th>Casos</th><th class="l">Escenario</th><th class="l">Corrección</th><th class="l">Acción</th></tr></thead><tbody>
-    ${n13.map(([a,rs])=>{const cat=topList(countBy(rs,motivoCat),1)[0][0],k=mes+'|ag|'+a;return `<tr><td class="wrap">${esc(a)}</td><td>${rs.length}</td><td class="wrap">${esc(cat)}${rs[0].mot?' – '+esc(trunc(rs[0].mot,90)):''}</td>${ed(k+'|cor',trunc(rs[0].obs,240),'wrap')}${ed(k+'|acc',accAg[cat]||'Reforzar habilidades comerciales: sondeo, manejo de objeciones y cierre.','wrap')}</tr>`}).join('')}
-    </tbody></table></div></div>${editNote(more(ag.length,n13.length,'asesores'))}`:emptyBox('Sin casos de causa raíz agente en el periodo.'));
+  const agP=paAg(czCur), n13=agP.slice(0,PA_N[13]);
+  add(13,'PLAN DE ACCIÓN Causa Raíz',n13.length?`<div class="fit"><div class="fi"><table class="plan"><colgroup><col style="width:78px"><col style="width:78px"><col style="width:150px"><col style="width:44px"><col><col style="width:230px"><col style="width:230px"><col style="width:96px"><col style="width:76px"></colgroup>
+    <thead><tr><th>Fecha de solicitud</th><th>Fecha de refuerzo</th><th class="l">Agente</th><th>Casos</th><th class="l">Escenario</th><th class="l">Corrección</th><th class="l">Acción</th><th>Responsable</th><th>Estado</th></tr></thead><tbody>
+    ${n13.map(x=>{const k=mes+'|ag|'+x.a;return `<tr>${ed(k+'|fs',hoyTxt)}${ed(k+'|fr',refTxt)}<td class="wrap">${esc(x.a)}</td><td>${x.n}</td><td class="wrap">${esc(x.esc)}</td>${ed(k+'|cor',x.cor,'wrap')}${ed(k+'|acc',x.acc,'wrap')}${ed(k+'|resp','CALIDAD / CAPACITACIÓN','wrap')}${ed(k+'|est','PENDIENTE','wrap')}</tr>`}).join('')}
+    </tbody></table></div></div>${editNote(more(agP.length,n13.length,'asesores'))}`:emptyBox('Sin casos de causa raíz agente en el periodo.'));
 
-  const n14=nvA.slice(0,PA_N[14]);
-  add(14,'Análisis de tipificación – Plan de acción',n14.length?`<div class="fit"><div class="fi"><table class="plan"><colgroup><col style="width:96px"><col style="width:96px"><col style="width:230px"><col style="width:66px"><col style="width:300px"><col><col style="width:130px"></colgroup>
-    <thead><tr><th>Fecha de solicitud</th><th>Fecha de refuerzo</th><th class="l">Asesores que incumplen</th><th>No ventas</th><th class="l">Escenarios</th><th class="l">Acción</th><th>Responsable</th></tr></thead><tbody>
-    ${n14.map(([a,rs])=>{const k=mes+'|nv|'+a;return `<tr>${ed(k+'|fs',hoyTxt)}${ed(k+'|fr','PENDIENTE')}<td class="wrap">${esc(a)}</td><td>${rs.length}</td><td class="wrap">${esc(topList(countBy(rs,motivoCat),3).map(([c,v])=>c+' ('+v+')').join('; '))}</td>${ed(k+'|acc','Revisar las llamadas con el asesor y reforzar rebate y cierre según el escenario.','wrap')}${ed(k+'|resp','CALIDAD / CAPACITACIÓN','wrap')}</tr>`}).join('')}
-    </tbody></table></div></div>${editNote(more(nvA.length,n14.length,'asesores'))}`:emptyBox('Sin no ventas en el periodo.'));
+  const nvP=paNV(nvA), n14=nvP.slice(0,PA_N[14]);
+  add(14,'Análisis de tipificación – Plan de acción',n14.length?`<div class="fit"><div class="fi"><table class="plan"><colgroup><col style="width:88px"><col style="width:88px"><col style="width:210px"><col style="width:62px"><col style="width:270px"><col><col style="width:110px"><col style="width:80px"></colgroup>
+    <thead><tr><th>Fecha de solicitud</th><th>Fecha de refuerzo</th><th class="l">Asesores que incumplen</th><th>No ventas</th><th class="l">Escenarios</th><th class="l">Acción</th><th>Responsable</th><th>Estado</th></tr></thead><tbody>
+    ${n14.map(x=>{const k=mes+'|nv|'+x.a;return `<tr>${ed(k+'|fs',hoyTxt)}${ed(k+'|fr',refTxt)}<td class="wrap">${esc(x.a)}</td><td>${x.n}</td><td class="wrap">${esc(x.esc)}</td>${ed(k+'|acc',x.acc,'wrap')}${ed(k+'|resp','CALIDAD / CAPACITACIÓN','wrap')}${ed(k+'|est','PENDIENTE','wrap')}</tr>`}).join('')}
+    </tbody></table></div></div>${editNote(more(nvP.length,n14.length,'asesores'))}`:emptyBox('Sin no ventas en el periodo.'));
 
   add(15,'',`<div class="big">GRACIAS</div>`);
 
@@ -1123,28 +1185,24 @@ async function exportPptx(){
     if(nvA.length) fitTable(s,['ASESORES CON MÁS NO VENTAS','NO VENTA',...ws.map(w=>'S'+w.n),'MOTIVO PRINCIPAL'],nvA.map(([a,rs])=>[L_(a),cell(rs.length),...ws.map(w=>cell(rs.filter(r=>r.sem===w.n).length||'—')),L_(topList(countBy(rs,motivoCat),1)[0][0])]),
       {x:5.65,y:3.85,w:7.48,h:3.2},[2.7,0.7,...ws.map(()=>0.45),7.48-2.7-0.7-ws.length*0.45],{maxRowH:0.27});
 
-    /* ---- 12, 13, 14. Planes de acción (una lámina cada uno, casos principales) ---- */
-    const hoy=new Date(), hoyTxt=String(hoy.getDate()).padStart(2,'0')+'/'+String(hoy.getMonth()+1).padStart(2,'0')+'/'+hoy.getFullYear();
+    /* ---- 12, 13, 14. Planes de acción (una lámina cada uno, casos principales; ver paNeg / paAg / paNV) ---- */
+    const hoyTxt=PA_HOY(), refTxt=PA_REF();
     const pa=(k,d)=>store.get('pa:'+k,null)??d;
-    const ex=r=>trunc(r.mot&&r.mot.length>25?r.mot:r.obs,220);
-    const negRows=[];for(const [c,,l] of PEC.NEG.items){for(const [a,rs] of groupBy(cur.filter(r=>r.items[c]==='N'),r=>r.ase))negRows.push({a,c,l,rs})}
-    negRows.sort((x,y)=>y.rs.length-x.rs.length);
     const wcell=t=>cell(t,{align:'left'});
     const paSlide=(title,head,rows,colW,empty)=>{const s=newSlide(title);
       if(!rows.length){s.addText(empty,{x:X0,y:1.2,w:W,h:0.5,fontFace:FONT,fontSize:12,color:C.muted,isTextBox:true});return}
       const rh=Math.min(1.2,6.0/(rows.length+0.6));
       s.addTable([head.map(h=>hdr(h)),...rows],{x:X0,y:0.9,w:W,colW,fontFace:FONT,fontSize:rows.length>6?7:7.5,color:C.ink,border:{type:'solid',pt:0.5,color:C.black},valign:'middle',align:'center',margin:0.04,rowH:[0.5,...rows.map(()=>rh)],autoPage:false});
     };
-    paSlide('PLAN DE ACCIÓN PEC Negociación',['FECHA DE SOLICITUD','FECHA DE REFUERZO','PARÁMETROS AFECTADOS','SUB PARÁMETRO','ASESORES QUE INCUMPLIERON','CASOS','ESCENARIO','PLAN QUE DEBIÓ OFERTAR','RECOMENDACIÓN','RESPONSABLE'],
-      negRows.slice(0,6).map(x=>{const k=mes+'|neg|'+x.a+'|'+x.c;return [cell(pa(k+'|fs',hoyTxt)),cell(pa(k+'|fr','PENDIENTE')),cell('PEC NEGOCIO / OFRECIMIENTO COMERCIAL'),cell(x.l.toUpperCase()),cell(x.a),cell(x.rs.length),cell(ex(x.rs[0])),cell(trunc(x.rs[0].prod,70)),wcell(pa(k+'|rec',RECO[x.c]||'Reforzar el parámetro con el asesor.')),cell(pa(k+'|resp','CALIDAD / CAPACITACIÓN'))]}),
-      [0.8,0.8,1.1,1.25,1.4,0.5,1.75,1.1,3.2,1.03],'Sin incumplimientos de PEC Negociación en el periodo.');
-    const accAg={'Asesor no sondea / no rebate':'Realizar un mayor sondeo de necesidades y ofrecimiento escalonado; rebatir con beneficios del plan y promociones vigentes antes de cerrar.','Cliente corta la llamada':'Captar el interés en los primeros segundos con el gancho comercial y confirmar disponibilidad del cliente.','Tiempo de espera':'Tener abiertos los materiales de apoyo desde el inicio para evitar esperas.'};
-    paSlide('PLAN DE ACCIÓN Causa Raíz',['AGENTE','CASOS','ESCENARIO','CORRECCIÓN','ACCIÓN'],
-      ag.slice(0,6).map(([a,rs])=>{const cat=topList(countBy(rs,motivoCat),1)[0][0],k=mes+'|ag|'+a;return [cell(a),cell(rs.length),cell(cat+(rs[0].mot?' – '+trunc(rs[0].mot,90):'')),cell(pa(k+'|cor',trunc(rs[0].obs,260))),cell(pa(k+'|acc',accAg[cat]||'Reforzar habilidades comerciales: sondeo, manejo de objeciones y cierre.'))]}),
-      [1.6,0.6,2.2,4.33,4.2],'Sin casos de causa raíz agente en el periodo.');
-    paSlide('Análisis de tipificación – Plan de acción',['FECHA DE SOLICITUD','FECHA DE REFUERZO','ASESORES QUE INCUMPLEN','NO VENTAS','ESCENARIOS','ACCIÓN','RESPONSABLE'],
-      nvA.slice(0,8).map(([a,rs])=>{const k=mes+'|nv|'+a;return [cell(pa(k+'|fs',hoyTxt)),cell(pa(k+'|fr','PENDIENTE')),cell(a),cell(rs.length),cell(topList(countBy(rs,motivoCat),3).map(([c,v])=>`${c} (${v})`).join('; ')),cell(pa(k+'|acc','Revisar las llamadas con el asesor y reforzar rebate y cierre según el escenario.')),cell(pa(k+'|resp','CALIDAD / CAPACITACIÓN'))]}),
-      [1.3,1.2,2.4,0.9,3.0,2.8,1.33],'Sin no ventas en el periodo.');
+    paSlide('PLAN DE ACCIÓN PEC Negociación',['FECHA DE SOLICITUD','FECHA DE REFUERZO','SUB PARÁMETROS (PEC NEG)','ASESOR','CASOS','ESCENARIO','PLAN QUE DEBIÓ OFERTAR','RECOMENDACIÓN','RESPONSABLE','ESTADO'],
+      paNeg(cur).slice(0,6).map(x=>{const k=mes+'|neg|'+x.a;return [cell(pa(k+'|fs',hoyTxt)),cell(pa(k+'|fr',refTxt)),wcell(x.subTxt),cell(x.a),cell(x.n),wcell(x.esc),cell(x.plan),wcell(pa(k+'|rec',x.rec)),cell(pa(k+'|resp','CALIDAD / CAPACITACIÓN')),cell(pa(k+'|est','PENDIENTE'))]}),
+      [0.8,0.8,1.6,1.3,0.5,2.2,1.0,3.0,1.0,0.73],'Sin incumplimientos de PEC Negociación en el periodo.');
+    paSlide('PLAN DE ACCIÓN Causa Raíz',['FECHA DE SOLICITUD','FECHA DE REFUERZO','AGENTE','CASOS','ESCENARIO','CORRECCIÓN','ACCIÓN','RESPONSABLE','ESTADO'],
+      paAg(czCur).slice(0,6).map(x=>{const k=mes+'|ag|'+x.a;return [cell(pa(k+'|fs',hoyTxt)),cell(pa(k+'|fr',refTxt)),cell(x.a),cell(x.n),wcell(x.esc),wcell(pa(k+'|cor',x.cor)),wcell(pa(k+'|acc',x.acc)),cell(pa(k+'|resp','CALIDAD / CAPACITACIÓN')),cell(pa(k+'|est','PENDIENTE'))]}),
+      [0.8,0.8,1.4,0.5,2.9,2.6,2.2,1.0,0.73],'Sin casos de causa raíz agente en el periodo.');
+    paSlide('Análisis de tipificación – Plan de acción',['FECHA DE SOLICITUD','FECHA DE REFUERZO','ASESORES QUE INCUMPLEN','NO VENTAS','ESCENARIOS','ACCIÓN','RESPONSABLE','ESTADO'],
+      paNV(nvA).slice(0,8).map(x=>{const k=mes+'|nv|'+x.a;return [cell(pa(k+'|fs',hoyTxt)),cell(pa(k+'|fr',refTxt)),cell(x.a),cell(x.n),wcell(x.esc),wcell(pa(k+'|acc',x.acc)),cell(pa(k+'|resp','CALIDAD / CAPACITACIÓN')),cell(pa(k+'|est','PENDIENTE'))]}),
+      [1.0,1.0,2.2,0.8,2.9,3.3,1.0,0.73],'Sin no ventas en el periodo.');
 
     /* ---- 15. Gracias ---- */
     s=pptx.addSlide(); s.background={color:'FFFFFF'};
