@@ -351,9 +351,9 @@ const M = [
  {k:'nps',i:5,meta:70,name:'NPS',full:'Net Promoter Score',scale:'0–10',type:'tri',cat:x=>x<=1?'det':x<=6?'ofe':x<=8?'neu':'pro',
   cats:[['pro','Promotores'],['neu','Neutros'],['ofe','Ofensores'],['det','Detractores']]},
  {k:'fcr',i:6,meta:85,name:'FCR',full:'Resolución en el primer contacto',scale:'1 / 2',type:'bin',cat:x=>x===1?'pro':'det',cats:[['pro','Resolvió'],['det','No resolvió']]},
+ {k:'oc',i:9,meta:null,metaTxt:'Definida por campaña',name:'OC',full:'Orientación al cliente',scale:'1 / 2',type:'bin',cat:x=>x===1?'pro':'det',cats:[['pro','Lo hizo bien'],['det','Lo hizo mal']]},   // OC al medio: es el orden en que se pregunta en la encuesta
  {k:'epa',i:7,meta:90,name:'EPA',full:'Amabilidad del asesor',scale:'1–5',type:'tri',cat:x=>x<=3?'det':x===4?'neu':'pro',cats:[['pro','Promotores'],['neu','Neutros'],['det','Detractores']]},
  {k:'cs',i:8,meta:90,name:'CS',full:'Satisfacción del cliente',scale:'1–7',type:'tri',cat:x=>x<=4?'det':x===5?'neu':'pro',cats:[['pro','Promotores'],['neu','Neutros'],['det','Detractores']]},
- {k:'oc',i:9,meta:null,metaTxt:'Definida por campaña',name:'OC',full:'Orientación al cliente',scale:'1 / 2',type:'bin',cat:x=>x===1?'pro':'det',cats:[['pro','Lo hizo bien'],['det','Lo hizo mal']]},
 ];
 const VAL={det:-1,ofe:0,neu:0,pro:1};
 // Metas: infografía «KPIs del Contact Center» de Claro Ecuador
