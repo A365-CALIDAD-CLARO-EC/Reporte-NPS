@@ -197,7 +197,7 @@ def subir(ruta):
     git("-c", "user.name=1406-20", "-c", "user.email=1406-20@users.noreply.github.com",
         "commit", "-m", f"Actualización NPS con {os.path.basename(ruta)}", "--", nombre)
     git("push", "origin", "main")
-    print("Subido a GitHub: https://a365-calidad-claro-ec.github.io/Reporte-NPS/ (tarda unos minutos en verse)")
+    print("Subido a GitHub: https://a365-calidad.github.io/Reporte-CLARO-NPS/ (tarda unos minutos en verse)")
 
 
 if __name__ == "__main__":
